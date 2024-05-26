@@ -1,0 +1,27 @@
+# services:
+#   app:
+#     image: app
+#     container_name: app
+#     environment:
+#       - EDGEDB_DSN=edgedb://edgedb:5656?tls_security=insecure
+#     volumes:
+#       - .:/usr/src/app  # Bind the current directory to the container
+#     networks:
+#       - internal
+#   edgedb:
+#     image: edgedb/edgedb
+#     container_name: edgedb
+#     env_file:
+#       - "./.env"
+#     volumes:
+#       - dbdata:/var/lib/edgedb/data # Data persistence
+#       - "./dbschema:/dbschema"      # Schema persistence
+#     ports:
+#       - 5656:5656
+#     networks:
+#       - internal
+# volumes:
+#   dbdata:
+# networks:
+#   internal:
+#     driver: bridge

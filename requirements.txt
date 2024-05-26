@@ -1,0 +1,5 @@
+edgedb
+requests
+python-dotenv==1.0.1
+flask
+discord-oauth2.py
