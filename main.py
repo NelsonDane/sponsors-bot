@@ -20,7 +20,6 @@ def get_sponsors():
                         node {
                             ... on User {
                                 databaseId
-                                name
                                 url
                             }
                         }
