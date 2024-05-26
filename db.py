@@ -11,7 +11,7 @@ class EdgeDB:
             gh_username = gh_url.split("/")[-1]
         self.client.execute('''
             INSERT Sponsor {
-                gh_id := <str>$gh_id,
+                gh_id := <int32>$gh_id,
                 discord_id := <str>$discord_id,
                 gh_username := <str>$gh_username,
                 gh_url := <str>$gh_url,
@@ -29,7 +29,7 @@ class EdgeDB:
                 is_contributor,
                 discord_name
             }
-            FILTER .gh_id = <str>$gh_id
+            FILTER .gh_id = <int32>$gh_id
             LIMIT 1;
         ''', gh_id=gh_id)
 
@@ -54,7 +54,7 @@ class EdgeDB:
             gh_username = sponsor.gh_url.split("/")[-1]
         self.client.execute('''
             UPDATE Sponsor
-            FILTER .gh_id = <str>$gh_id
+            FILTER .gh_id = <int32>$gh_id
             SET {
                 gh_username := <str>$gh_username
             };
@@ -65,7 +65,7 @@ class EdgeDB:
             return
         self.client.execute('''
             UPDATE Sponsor
-            FILTER .gh_id = <str>$gh_id
+            FILTER .gh_id = <int32>$gh_id
             SET {
                 gh_url := <str>$gh_url
             };
@@ -76,7 +76,7 @@ class EdgeDB:
             return
         self.client.execute('''
             UPDATE Sponsor
-            FILTER .gh_id = <str>$gh_id
+            FILTER .gh_id = <int32>$gh_id
             SET {
                 discord_id := <str>$discord_id
             };
@@ -87,7 +87,7 @@ class EdgeDB:
             return
         self.client.execute('''
             UPDATE Sponsor
-            FILTER .gh_id = <str>$gh_id
+            FILTER .gh_id = <int32>$gh_id
             SET {
                 discord_name := <str>$discord_name
             };
@@ -98,7 +98,7 @@ class EdgeDB:
             return
         self.client.execute('''
             UPDATE Sponsor
-            FILTER .gh_id = <str>$gh_id
+            FILTER .gh_id = <int32>$gh_id
             SET {
                 is_contributor := <bool>$is_contributor
             };

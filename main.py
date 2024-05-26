@@ -19,10 +19,9 @@ def get_sponsors():
                     edges {
                         node {
                             ... on User {
-                                id
+                                databaseId
                                 name
                                 url
-                                avatarUrl
                             }
                         }
                     }
@@ -40,16 +39,16 @@ def update_sponsors(db: EdgeDB):
     for sponsor in gh_sponsors:
         sponsor = sponsor["node"]
         db.create_sponsor(
-            gh_id=sponsor["id"],
+            gh_id=sponsor["databaseId"],
             gh_username=sponsor["url"].split("/")[-1],
             gh_url=sponsor["url"]
         )
         db.update_sponsor_gh_username(
-            gh_id=sponsor["id"],
+            gh_id=sponsor["databaseId"],
             gh_username=sponsor["url"].split("/")[-1]
         )
         db.update_sponsor_gh_url(
-            gh_id=sponsor["id"],
+            gh_id=sponsor["databaseId"],
             gh_url=sponsor["url"]
         )
     print("Sponsors list updated")
@@ -67,13 +66,12 @@ def get_contributors():
 def update_contributors(db: EdgeDB):
     contributors = get_contributors()
     for contributor in contributors:
-        gh_id = contributor["node_id"]
-        does_exist = db.get_sponsor_by_gh_id(gh_id)
+        does_exist = db.get_sponsor_by_gh_id(contributor["id"])
         if does_exist:
-            db.update_sponsor_is_contributor(gh_id, True)
+            db.update_sponsor_is_contributor(contributor["id"], True)
         else:
             db.create_sponsor(
-                gh_id=gh_id,
+                gh_id=contributor["id"],
                 gh_username=contributor["login"],
                 gh_url=contributor["html_url"],
                 is_contributor=True

@@ -1,6 +1,6 @@
 module default {
     type Sponsor {
-        required gh_id: str {
+        required gh_id: int32 {
             delegated constraint exclusive;
         }
         gh_username: str;
