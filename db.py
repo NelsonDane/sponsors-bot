@@ -115,3 +115,16 @@ class EdgeDB:
                 is_currently_sponsoring := <bool>$is_currently_sponsoring
             };
         ''', gh_id=int(gh_id), is_currently_sponsoring=is_currently_sponsoring)
+
+    def get_sponsors(self):
+        return self.client.query('''
+            SELECT Sponsor {
+                gh_id,
+                gh_username,
+                is_contributor,
+                discord_name,
+                discord_id,
+                discord_code,
+                is_currently_sponsoring
+            };
+        ''')

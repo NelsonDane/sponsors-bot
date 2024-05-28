@@ -4,17 +4,16 @@ from dotenv import load_dotenv
 from db import EdgeDB
 
 load_dotenv()
-if not os.getenv("GH_REPO") or not os.getenv("GH_TOKEN"):
-    raise Exception("Please set GH_REPO and GH_TOKEN in .env file")
 GH_REPO = os.getenv("GH_REPO")
 GH_TOKEN = os.getenv("GH_TOKEN")
+GH_TIER_ID = os.getenv("GH_TIER_ID")
 
 def get_sponsors():
     headers = {"Authorization": f"token {GH_TOKEN}"}
     query = """
         query SponsorQuery {
             viewer {
-                sponsors(first: 100) {
+                sponsors(first: 100, tierId: "%s") {
                     edges {
                         node {
                             ... on User {
@@ -27,13 +26,18 @@ def get_sponsors():
             }
         }
     """
+    query = query % GH_TIER_ID
     request = requests.post('https://api.github.com/graphql', json={'query': query}, headers=headers)
     if request.status_code != 200:
         raise Exception(f"Query failed to run by returning code {request.status_code}. {request.text}")
     return request.json()["data"]["viewer"]["sponsors"]["edges"]
 
 def update_sponsors(db: EdgeDB):
+    users = db.get_sponsors()
     gh_sponsors = get_sponsors()
+    for user in users:
+        if not any(sponsor["node"]["databaseId"] == user.gh_id for sponsor in gh_sponsors):
+            db.update_sponsor_is_currently_sponsoring(user.gh_id, False)
     for sponsor in gh_sponsors:
         sponsor = sponsor["node"]
         if db.get_sponsor_by_gh_id(sponsor["databaseId"]):
