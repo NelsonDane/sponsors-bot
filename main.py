@@ -1,87 +1,47 @@
-import requests
+import discord
+from discord import app_commands
 from dotenv import load_dotenv
 import os
 
 from db import EdgeDB
+from gh import update_sponsors, update_contributors
+from web import generate_uri
 
 load_dotenv()
-if not os.getenv("GH_REPO") or not os.getenv("GH_TOKEN"):
-    raise Exception("Please set GH_REPO and GH_TOKEN in .env file")
-GH_REPO = os.getenv("GH_REPO")
-GH_TOKEN = os.getenv("GH_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
+GUILD_ID = os.getenv("GUILD_ID")
 
-def get_sponsors():
-    headers = {"Authorization": f"token {GH_TOKEN}"}
-    query = """
-        query SponsorQuery {
-            viewer {
-                sponsors(first: 100) {
-                    edges {
-                        node {
-                            ... on User {
-                                databaseId
-                                url
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    """
-    request = requests.post('https://api.github.com/graphql', json={'query': query}, headers=headers)
-    if request.status_code != 200:
-        raise Exception(f"Query failed to run by returning code {request.status_code}. {request.text}")
-    return request.json()["data"]["viewer"]["sponsors"]["edges"]
-
-def update_sponsors(db: EdgeDB):
-    gh_sponsors = get_sponsors()
-    for sponsor in gh_sponsors:
-        sponsor = sponsor["node"]
-        db.create_sponsor(
-            gh_id=sponsor["databaseId"],
-            gh_username=sponsor["url"].split("/")[-1],
-            gh_url=sponsor["url"]
-        )
-        db.update_sponsor_gh_username(
-            gh_id=sponsor["databaseId"],
-            gh_username=sponsor["url"].split("/")[-1]
-        )
-        db.update_sponsor_gh_url(
-            gh_id=sponsor["databaseId"],
-            gh_url=sponsor["url"]
-        )
-    print("Sponsors list updated")
-
-def get_contributors():
-    response = requests.get(f"https://api.github.com/repos/{GH_REPO}/contributors")
-    if response.status_code != 200:
-        raise Exception(f"Query failed to run by returning code {response.status_code}. {response.text}")
-    users = []
-    for user in response.json():
-        if user["type"] == "User":
-            users.append(user)
-    return users
-
-def update_contributors(db: EdgeDB):
-    contributors = get_contributors()
-    for contributor in contributors:
-        does_exist = db.get_sponsor_by_gh_id(contributor["id"])
-        if does_exist:
-            db.update_sponsor_is_contributor(contributor["id"], True)
-        else:
-            db.create_sponsor(
-                gh_id=contributor["id"],
-                gh_username=contributor["login"],
-                gh_url=contributor["html_url"],
-                is_contributor=True
-            )
-    print("Contributors list updated")
-
-def main():
+def update_db():
     db = EdgeDB()
     update_sponsors(db)
-    update_contributors(db)
-    
+    update_contributors(db)    
 
 if __name__ == "__main__":
-    main()
+    intents = discord.Intents.default()
+    client = discord.Client(intents=intents)
+    tree = app_commands.CommandTree(client)
+
+    @tree.command(
+        name="test",
+        description="Test command",
+        guild=discord.Object(id=GUILD_ID)
+    )
+    async def test_command(interaction: discord.Interaction):
+        update_db()
+        db = EdgeDB()
+        if db.get_sponsor_by_discord_id(interaction.user.id):
+            await interaction.response.send_message("You are a sponsor!", ephemeral=True)
+        else:
+            # Make new private thread
+            thread = await interaction.channel.create_thread(name=f"{interaction.user.display_name}'s Thread", auto_archive_duration=60)
+            await thread.add_user(interaction.user)
+            await thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
+            await thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
+
+    @client.event
+    async def on_ready():
+        await tree.sync(guild=discord.Object(id=GUILD_ID))
+        print(f"Logged in as {client.user}")
+
+    # Start stuff
+    client.run(TOKEN)

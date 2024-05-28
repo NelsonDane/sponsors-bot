@@ -3,10 +3,18 @@ module default {
         required gh_id: int32 {
             delegated constraint exclusive;
         }
-        gh_username: str;
-        gh_url: str;
-        discord_id: str;
+        required gh_username: str {
+            delegated constraint exclusive;
+        }
+        gh_url := "https://github.com/" ++ .gh_username;
+        discord_id: int64 {
+            delegated constraint exclusive;
+            default := 0;
+        }
         discord_name: str;
+        discord_code: str {
+            delegated constraint exclusive;
+        }
         is_contributor: bool {
             default := false;
         }
