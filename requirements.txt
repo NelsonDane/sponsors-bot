@@ -5,3 +5,4 @@ flask
 discord-oauth2.py
 discord.py==2.3.2
 setuptools==70.0.0
+emoji

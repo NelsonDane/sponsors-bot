@@ -59,9 +59,7 @@ def oauth2():
                     gh_id=gh_id,
                     discord_code=code,
                 )
-    # return f"""{identify}<br><br>{connections}<br><br>"""
     return "Success! You can now close this tab."
 
 if __name__ == "__main__":
-    # app.run("0.0.0.0", 8080)
     app.run("127.0.0.1", 8080)

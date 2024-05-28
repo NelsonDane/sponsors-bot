@@ -18,5 +18,8 @@ module default {
         is_contributor: bool {
             default := false;
         }
+        is_currently_sponsoring: bool {
+            default := false;
+        }
     }
 }
