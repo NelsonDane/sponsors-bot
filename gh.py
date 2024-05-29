@@ -18,7 +18,9 @@ def get_sponsors():
                         node {
                             ... on User {
                                 databaseId
-                                url
+                                ... on Actor {
+                                    login
+                                }
                             }
                         }
                     }
@@ -42,11 +44,11 @@ def update_sponsors(db: EdgeDB):
         sponsor = sponsor["node"]
         if db.get_sponsor_by_gh_id(sponsor["databaseId"]):
             db.update_sponsor_is_currently_sponsoring(sponsor["databaseId"], True)
-            db.update_sponsor_gh_username(sponsor["databaseId"], sponsor["url"].split("/")[-1])
+            db.update_sponsor_gh_username(sponsor["databaseId"], sponsor["login"])
         else:
             db.create_sponsor(
                 gh_id=sponsor["databaseId"],
-                gh_username=sponsor["url"].split("/")[-1],
+                gh_username=sponsor["login"],
                 is_currently_sponsoring=True
             )
     print("Sponsors list updated")
