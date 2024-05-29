@@ -65,12 +65,13 @@ async def roles_message_refresh():
 
 if __name__ == "__main__":
     intents = discord.Intents.default()
+    intents.messages = True
     client = discord.Client(intents=intents)
     tree = app_commands.CommandTree(client)
 
     @client.event
-    async def on_message_edit(before, after):
-        if before.id == int(ROLES_MESSAGE_ID) and after.id == int(ROLES_MESSAGE_ID):
+    async def on_raw_message_edit(payload):
+        if payload.channel_id == int(ROLES_CHANNEL_ID) and payload.message_id == int(ROLES_MESSAGE_ID):
             await roles_message_refresh()
 
     @client.event
@@ -87,11 +88,11 @@ if __name__ == "__main__":
                         return
                     guild = client.get_guild(payload.guild_id)
                     server_roles = await guild.fetch_roles()
-                    role = discord.utils.get(server_roles, name=role["name"])
-                    if role:
+                    server_role = discord.utils.get(server_roles, name=role["name"])
+                    if server_role:
                         member = await guild.fetch_member(payload.user_id)
-                        await member.add_roles(role)
-                        print(f"Gave role {role.name} to {member.display_name}")
+                        await member.add_roles(server_role)
+                        print(f"Gave role {server_role.name} to {member.display_name}")
                     else:
                         print(f"Role {role['name']} not found")
 
@@ -109,11 +110,11 @@ if __name__ == "__main__":
                         return
                     guild = client.get_guild(payload.guild_id)
                     server_roles = await guild.fetch_roles()
-                    role = discord.utils.get(server_roles, name=role["name"])
-                    if role:
+                    server_role = discord.utils.get(server_roles, name=role["name"])
+                    if server_role:
                         member = await guild.fetch_member(payload.user_id)
-                        await member.remove_roles(role)
-                        print(f"Removed role {role.name} from {member.display_name}")
+                        await member.remove_roles(server_role)
+                        print(f"Removed role {server_role.name} from {member.display_name}")
                     else:
                         print(f"Role {role['name']} not found")
 
