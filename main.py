@@ -34,7 +34,7 @@ def is_contributor(user_id):
     user = db.get_sponsor_by_discord_id(user_id)
     return user and user.is_contributor
 
-def build_roles(roles_message):
+def get_roles_from_message(roles_message):
     roles_message = roles_message.split("*")[1:]
     roles = []
     for role in roles_message:
@@ -48,18 +48,38 @@ def build_roles(roles_message):
     print(f"Fetched roles: {roles}")
     return roles
 
+async def roles_message_refresh():
+    channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
+    roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
+    roles_message_text = roles_message.content
+    roles = get_roles_from_message(roles_message_text)
+    reactions = roles_message.reactions
+    for role in roles:
+        await roles_message.add_reaction(role["emoji"])
+        print(f"Added reaction {role['emoji']}")
+    for reaction in reactions:
+        if reaction.emoji not in [role["emoji"] for role in roles]:
+            await roles_message.remove_reaction(reaction.emoji, client.user)
+            print(f"Removed reaction {reaction.emoji}")
+    print("Roles message refreshed")
+
 if __name__ == "__main__":
     intents = discord.Intents.default()
     client = discord.Client(intents=intents)
     tree = app_commands.CommandTree(client)
 
     @client.event
+    async def on_message_edit(before, after):
+        if before.id == int(ROLES_MESSAGE_ID) and after.id == int(ROLES_MESSAGE_ID):
+            await roles_message_refresh()
+
+    @client.event
     async def on_raw_reaction_add(payload):
-        if payload.message_id == int(ROLES_MESSAGE_ID):
+        if payload.message_id == int(ROLES_MESSAGE_ID) and payload.user_id != client.user.id:
             channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
             roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
             roles_message = roles_message.content
-            roles = build_roles(roles_message)
+            roles = get_roles_from_message(roles_message)
             for role in roles:
                 if role["emoji"] == payload.emoji.name:
                     if not (is_sponsor(payload.user_id) or is_contributor(payload.user_id)):
@@ -77,11 +97,11 @@ if __name__ == "__main__":
 
     @client.event
     async def on_raw_reaction_remove(payload):
-        if payload.message_id == int(ROLES_MESSAGE_ID):
+        if payload.message_id == int(ROLES_MESSAGE_ID) and payload.user_id != client.user.id:
             channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
             roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
             roles_message = roles_message.content
-            roles = build_roles(roles_message)
+            roles = get_roles_from_message(roles_message)
             for role in roles:
                 if role["emoji"] == payload.emoji.name:
                     if not (is_sponsor(payload.user_id) or is_contributor(payload.user_id)):
@@ -136,6 +156,7 @@ if __name__ == "__main__":
         await tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f"Logged in as {client.user}")
         update_db()
+        await roles_message_refresh()
 
     # Start stuff
     client.run(TOKEN)
