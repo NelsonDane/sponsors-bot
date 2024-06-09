@@ -3,6 +3,8 @@ import discordoauth2
 from flask import Flask, request, redirect
 from dotenv import load_dotenv
 from db import EdgeDB
+from icmplib.exceptions import NameLookupError
+from icmplib import ping
 
 load_dotenv()
 CLIENT_ID = os.getenv("CLIENT_ID")
@@ -17,6 +19,15 @@ client_oauth2 = discordoauth2.Client(
         bot_token=None
     )
 app = Flask(__name__)
+
+def check_db():
+    try:
+        # Try to ping Docker db
+        host = ping('web', count=3, interval=0.2, timeout=1, privileged=False)
+        if host.is_alive:
+            return 'web'
+    except NameLookupError:
+        return '127.0.0.1'
 
 def generate_uri():
     return client_oauth2.generate_uri(scope=["identify", "connections", "role_connections.write"])
@@ -62,4 +73,7 @@ def oauth2():
     return "Success! You can now close this tab."
 
 if __name__ == "__main__":
-    app.run("127.0.0.1", 8080)
+    ip = check_db()
+    print(f"Database IP: {ip}")
+    app.run(ip, 8080)
+    # app.run("0.0.0.0", 8080)

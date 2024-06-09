@@ -1,5 +1,6 @@
 import discord
 from discord import app_commands
+from discord.ext import tasks
 from dotenv import load_dotenv
 import os
 import emoji
@@ -22,7 +23,7 @@ EMOJIS = emoji.EMOJI_DATA
 def update_db():
     db = EdgeDB()
     update_sponsors(db)
-    update_contributors(db)    
+    update_contributors(db)
 
 def is_sponsor(user_id):
     db = EdgeDB()
@@ -119,6 +120,14 @@ if __name__ == "__main__":
                         print(f"Role {role['name']} not found")
 
     @tree.command(
+        name="ping",
+        description="Ping the bot",
+        guild=discord.Object(id=GUILD_ID)
+    )
+    async def ping_command(interaction: discord.Interaction):
+        await interaction.response.send_message("Pong!", ephemeral=True)
+
+    @tree.command(
         name="verify",
         description="Verify your sponsor/contributor status",
         guild=discord.Object(id=GUILD_ID)
@@ -145,12 +154,17 @@ if __name__ == "__main__":
                 print(f"Removed contributor role from {discord_display_name}")
         else:
             # Make new private thread
-            thread = await interaction.channel.create_thread(name=f"{discord_display_name}'s Thread", auto_archive_duration=10)
+            thread = await interaction.channel.create_thread(name=f"{discord_display_name}'s Thread", auto_archive_duration=60)
             await thread.add_user(interaction.user)
             await thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
             await thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
             await interaction.response.send_message("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
             await thread.send("Please run /verify once you have connected your GitHub account.")
+
+    @tasks.loop(seconds=5)
+    async def update_db_loop():
+        update_db()
+        print("Database updated")
 
     @client.event
     async def on_ready():
@@ -158,6 +172,7 @@ if __name__ == "__main__":
         print(f"Logged in as {client.user}")
         update_db()
         await roles_message_refresh()
+        # update_db_loop.start()
 
     # Start stuff
     client.run(TOKEN)
