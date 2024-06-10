@@ -41,9 +41,11 @@ def get_roles_from_message(roles_message):
     for role in roles_message:
         role = role.split("\n")[0]
         role = ''.join(role.split())
+        # Emoji name (Channel link)
         role_dict = {
             "emoji": role[0],
-            "name": str(role[1:]).lower()
+            "name": str(role[1:].split("(")[0]).lower(),
+            "channel_link": str(role[1:].split("(")[1][:-1])
         }
         roles.append(role_dict)
     print(f"Fetched roles: {roles}")
@@ -64,6 +66,31 @@ async def roles_message_refresh():
             print(f"Removed reaction {reaction.emoji}")
     print("Roles message refreshed")
 
+async def role_message_control(payload, remove_role=False):
+    if payload.message_id == int(ROLES_MESSAGE_ID) and payload.user_id != client.user.id:
+        channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
+        roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
+        roles_message = roles_message.content
+        roles = get_roles_from_message(roles_message)
+        for role in roles:
+            if role["emoji"] == payload.emoji.name:
+                if not (is_sponsor(payload.user_id) or is_contributor(payload.user_id)):
+                    print(f"{payload.member.display_name} is not a sponsor or contributor")
+                    return
+                guild = client.get_guild(payload.guild_id)
+                server_roles = await guild.fetch_roles()
+                server_role = discord.utils.get(server_roles, name=role["name"])
+                if server_role:
+                    member = await guild.fetch_member(payload.user_id)
+                    if remove_role:
+                        await member.remove_roles(server_role)
+                        print(f"Removed role {server_role.name} from {member.display_name}")
+                    else:
+                        await member.add_roles(server_role)
+                        print(f"Gave role {server_role.name} to {member.display_name}")
+                else:
+                    print(f"Role {role['name']} not found")
+
 if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.messages = True
@@ -77,47 +104,11 @@ if __name__ == "__main__":
 
     @client.event
     async def on_raw_reaction_add(payload):
-        if payload.message_id == int(ROLES_MESSAGE_ID) and payload.user_id != client.user.id:
-            channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
-            roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
-            roles_message = roles_message.content
-            roles = get_roles_from_message(roles_message)
-            for role in roles:
-                if role["emoji"] == payload.emoji.name:
-                    if not (is_sponsor(payload.user_id) or is_contributor(payload.user_id)):
-                        print(f"{payload.member.display_name} is not a sponsor or contributor")
-                        return
-                    guild = client.get_guild(payload.guild_id)
-                    server_roles = await guild.fetch_roles()
-                    server_role = discord.utils.get(server_roles, name=role["name"])
-                    if server_role:
-                        member = await guild.fetch_member(payload.user_id)
-                        await member.add_roles(server_role)
-                        print(f"Gave role {server_role.name} to {member.display_name}")
-                    else:
-                        print(f"Role {role['name']} not found")
+        await role_message_control(payload)
 
     @client.event
     async def on_raw_reaction_remove(payload):
-        if payload.message_id == int(ROLES_MESSAGE_ID) and payload.user_id != client.user.id:
-            channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
-            roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
-            roles_message = roles_message.content
-            roles = get_roles_from_message(roles_message)
-            for role in roles:
-                if role["emoji"] == payload.emoji.name:
-                    if not (is_sponsor(payload.user_id) or is_contributor(payload.user_id)):
-                        print(f"{payload.member.display_name} is not a sponsor or contributor")
-                        return
-                    guild = client.get_guild(payload.guild_id)
-                    server_roles = await guild.fetch_roles()
-                    server_role = discord.utils.get(server_roles, name=role["name"])
-                    if server_role:
-                        member = await guild.fetch_member(payload.user_id)
-                        await member.remove_roles(server_role)
-                        print(f"Removed role {server_role.name} from {member.display_name}")
-                    else:
-                        print(f"Role {role['name']} not found")
+        await role_message_control(payload, remove_role=True)
 
     @tree.command(
         name="ping",
@@ -140,28 +131,35 @@ if __name__ == "__main__":
         if user:
             if user.is_currently_sponsoring:
                 await interaction.user.add_roles(discord.Object(id=SPONSOR_ROLE_ID))
-                await interaction.response.send_message("You are a sponsor!", ephemeral=True)
+                await interaction.response.send_message("Awesome, you are a sponsor!", ephemeral=True)
                 print(f"Gave sponsor role to {discord_display_name}")
             else:
                 await interaction.user.remove_roles(discord.Object(id=SPONSOR_ROLE_ID))
                 print(f"Removed sponsor role from {discord_display_name}")
             if user.is_contributor:
                 await interaction.user.add_roles(discord.Object(id=CONTRIBUTOR_ROLE_ID))
-                await interaction.response.send_message("You are a contributor!", ephemeral=True)
+                await interaction.response.send_message("Thanks, you are a GitHub contributor!", ephemeral=True)
                 print(f"Gave contributor role to {discord_display_name}")
             else:
                 await interaction.user.remove_roles(discord.Object(id=CONTRIBUTOR_ROLE_ID))
                 print(f"Removed contributor role from {discord_display_name}")
         else:
-            # Make new private thread
-            thread = await interaction.channel.create_thread(name=f"{discord_display_name}'s Thread", auto_archive_duration=60)
-            await thread.add_user(interaction.user)
-            await thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
-            await thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
             await interaction.response.send_message("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
-            await thread.send("Please run /verify once you have connected your GitHub account.")
+            # Make new private thread
+            thread_name = f"{discord_display_name}'s Thread"
+            threads = await interaction.channel.threads
+            for thread in threads:
+                if thread.name == thread_name:
+                    user_thread = thread
+                    break
+                else:
+                    user_thread = await interaction.channel.create_thread(name=thread_name, auto_archive_duration=60)
+            await user_thread.add_user(interaction.user)
+            await user_thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
+            await user_thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
+            await user_thread.send("Please run /verify once you have connected your GitHub account.")
 
-    @tasks.loop(seconds=5)
+    @tasks.loop(hours=1)
     async def update_db_loop():
         update_db()
         print("Database updated")
@@ -172,7 +170,7 @@ if __name__ == "__main__":
         print(f"Logged in as {client.user}")
         update_db()
         await roles_message_refresh()
-        # update_db_loop.start()
+        update_db_loop.start()
 
     # Start stuff
     client.run(TOKEN)

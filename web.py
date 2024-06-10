@@ -38,6 +38,9 @@ def main():
 
 @app.route("/oauth2")
 def oauth2():
+    if not request.args.get("code"):
+        return "Error: no code found in request"
+
     code = request.args.get("code")
 
     access = client_oauth2.exchange_code(code)
@@ -76,4 +79,3 @@ if __name__ == "__main__":
     ip = check_db()
     print(f"Database IP: {ip}")
     app.run(ip, 8080)
-    # app.run("0.0.0.0", 8080)
