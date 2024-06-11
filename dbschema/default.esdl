@@ -15,9 +15,10 @@ module default {
         discord_code: str {
             delegated constraint exclusive;
         }
-        is_contributor: bool {
-            default := false;
+        contributed_to_repos: array<str> {
+            default := <array<str>>[];
         }
+        is_contributor:= len(.contributed_to_repos) > 0;
         is_currently_sponsoring: bool {
             default := false;
         }

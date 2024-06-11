@@ -1,9 +1,10 @@
-edgedb
-requests
-python-dotenv==1.0.1
-flask
-discord-oauth2.py
+discord-oauth2.py==1.2.1
 discord.py==2.3.2
+edgedb==1.9.0
+emoji==2.12.1
+flask==3.0.3
+icmplib==3.0.4
+python-dotenv==1.0.1
+requests==2.32.2
 setuptools==70.0.0
-emoji
-icmplib
+PyYAML==6.0.1

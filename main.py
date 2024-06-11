@@ -1,22 +1,12 @@
 import discord
 from discord import app_commands
 from discord.ext import tasks
-from dotenv import load_dotenv
-import os
+from config import GUILD_ID, GH_SPONSORS_ROLE_ID, GH_OVERRIDE_ROLE_ID, ROLES_CHANNEL_ID, ROLES_MESSAGE_ID, REQUIRED_ROLES, BOT_TOKEN, GH_REPOS
 import emoji
 
 from db import EdgeDB
 from gh import update_sponsors, update_contributors
 from web import generate_uri
-
-
-load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN")
-GUILD_ID = os.getenv("GUILD_ID")
-SPONSOR_ROLE_ID = os.getenv("SPONSOR_ROLE_ID")
-CONTRIBUTOR_ROLE_ID = os.getenv("CONTRIBUTOR_ROLE_ID")
-ROLES_CHANNEL_ID = os.getenv("ROLES_CHANNEL_ID")
-ROLES_MESSAGE_ID = os.getenv("ROLES_MESSAGE_ID")
 
 EMOJIS = emoji.EMOJI_DATA
 
@@ -34,6 +24,14 @@ def is_contributor(user_id):
     db = EdgeDB()
     user = db.get_sponsor_by_discord_id(user_id)
     return user and user.is_contributor
+
+def get_roles_from_contributor_repos(contributed_to_repos):
+    roles = []
+    for repo in contributed_to_repos:
+        for gh_repo in GH_REPOS:
+            if gh_repo["LINK"] == repo:
+                roles.append(gh_repo["REPO_ROLE_ID"]["define"])
+    return roles
 
 def get_roles_from_message(roles_message):
     roles_message = roles_message.split("*")[1:]
@@ -130,18 +128,22 @@ if __name__ == "__main__":
         discord_display_name = interaction.user.display_name
         if user:
             if user.is_currently_sponsoring:
-                await interaction.user.add_roles(discord.Object(id=SPONSOR_ROLE_ID))
-                await interaction.response.send_message("Awesome, you are a sponsor!", ephemeral=True)
+                await interaction.user.add_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
+                await interaction.response.send_message("Awesome, you are a sponsor! I have given you your roles", ephemeral=True)
                 print(f"Gave sponsor role to {discord_display_name}")
             else:
-                await interaction.user.remove_roles(discord.Object(id=SPONSOR_ROLE_ID))
+                await interaction.user.remove_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
                 print(f"Removed sponsor role from {discord_display_name}")
             if user.is_contributor:
-                await interaction.user.add_roles(discord.Object(id=CONTRIBUTOR_ROLE_ID))
-                await interaction.response.send_message("Thanks, you are a GitHub contributor!", ephemeral=True)
+                roles = get_roles_from_contributor_repos(user.contributed_to_repos)
+                for role in roles:
+                    await interaction.user.add_roles(discord.Object(id=role))
+                await interaction.response.send_message("Thanks, you are a GitHub contributor! I have given you your roles", ephemeral=True)
                 print(f"Gave contributor role to {discord_display_name}")
             else:
-                await interaction.user.remove_roles(discord.Object(id=CONTRIBUTOR_ROLE_ID))
+                roles = (x["REPO_ROLE_ID"] for x in GH_REPOS.values())
+                for role in roles:
+                    await interaction.user.remove_roles(discord.Object(id=role))
                 print(f"Removed contributor role from {discord_display_name}")
         else:
             await interaction.response.send_message("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
@@ -170,7 +172,10 @@ if __name__ == "__main__":
         print(f"Logged in as {client.user}")
         update_db()
         await roles_message_refresh()
-        update_db_loop.start()
+        try:
+            update_db_loop.start()
+        except RuntimeError:
+            print("Loop already running")
 
     # Start stuff
-    client.run(TOKEN)
+    client.run(BOT_TOKEN)

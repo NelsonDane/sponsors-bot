@@ -1,16 +1,9 @@
-import os
 import discordoauth2
 from flask import Flask, request, redirect
-from dotenv import load_dotenv
 from db import EdgeDB
 from icmplib.exceptions import NameLookupError
 from icmplib import ping
-
-load_dotenv()
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-
+from config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
 
 client_oauth2 = discordoauth2.Client(
         id=CLIENT_ID,
