@@ -16,5 +16,6 @@ COPY edgedb.toml edgedb.toml
 COPY main.py main.py
 COPY gh.py gh.py
 COPY web.py web.py
+COPY config.py config.py
 
 CMD ["python", "-u", "main.py"]

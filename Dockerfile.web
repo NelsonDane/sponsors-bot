@@ -9,5 +9,6 @@ RUN pip install -r requirements.txt
 
 COPY db.py db.py
 COPY web.py web.py
+COPY config.py config.py
 
 CMD ["python", "-u", "web.py"]
