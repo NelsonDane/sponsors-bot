@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import tasks
-from config import GUILD_ID, GH_SPONSORS_ROLE_ID, GH_OVERRIDE_ROLE_ID, ROLES_CHANNEL_ID, ROLES_MESSAGE_ID, REQUIRED_ROLES, BOT_TOKEN, GH_REPOS
+from config import GUILD_ID, GH_SPONSORS_ROLE_ID, ROLES_CHANNEL_ID, ROLES_MESSAGE_ID, REQUIRED_ROLES, BOT_TOKEN, GH_REPOS
 import emoji
 
 from db import EdgeDB
@@ -14,16 +14,6 @@ def update_db():
     db = EdgeDB()
     update_sponsors(db)
     update_contributors(db)
-
-def is_sponsor(user_id):
-    db = EdgeDB()
-    user = db.get_sponsor_by_discord_id(user_id)
-    return user and user.is_currently_sponsoring
-
-def is_contributor(user_id):
-    db = EdgeDB()
-    user = db.get_sponsor_by_discord_id(user_id)
-    return user and user.is_contributor
 
 def get_roles_from_contributor_repos(contributed_to_repos):
     roles = []
@@ -156,17 +146,24 @@ if __name__ == "__main__":
                 for role in roles:
                     await interaction.user.remove_roles(discord.Object(id=role))
                 print(f"Removed contributor role from {discord_display_name}")
+            # Clean up old threads
+            for thread in interaction.channel.threads:
+                if thread.name == f"{discord_display_name}'s Thread":
+                    await thread.delete()
+                    print(f"Deleted thread {thread.name}")
         else:
             await interaction.response.send_message("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
             # Make new private thread
             thread_name = f"{discord_display_name}'s Thread"
-            threads = await interaction.channel.threads
-            for thread in threads:
-                if thread.name == thread_name:
-                    user_thread = thread
-                    break
-                else:
-                    user_thread = await interaction.channel.create_thread(name=thread_name, auto_archive_duration=60)
+            user_thread = None
+            # Check if user already has a thread
+            if interaction.channel.threads:
+                for thread in interaction.channel.threads:
+                    if thread.name == thread_name:
+                        user_thread = thread
+                        break
+            if user_thread is None:
+                user_thread = await interaction.channel.create_thread(name=thread_name, auto_archive_duration=60)
             await user_thread.add_user(interaction.user)
             await user_thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
             await user_thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
