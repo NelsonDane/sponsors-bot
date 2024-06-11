@@ -72,22 +72,29 @@ async def role_message_control(payload, remove_role=False):
         roles = get_roles_from_message(roles_message)
         for role in roles:
             if role["emoji"] == payload.emoji.name:
-                if not (is_sponsor(payload.user_id) or is_contributor(payload.user_id)):
-                    print(f"{payload.member.display_name} is not a sponsor or contributor")
-                    return
                 guild = client.get_guild(payload.guild_id)
+                member = await guild.fetch_member(payload.user_id)
+                member_role_ids = [role.id for role in member.roles]
+                intersection = set(member_role_ids).intersection(set(REQUIRED_ROLES))
+                if not intersection:
+                    print(f"{member.display_name} does not have required roles for {role['name']}")
+                    return
                 server_roles = await guild.fetch_roles()
                 server_role = discord.utils.get(server_roles, name=role["name"])
                 if server_role:
-                    member = await guild.fetch_member(payload.user_id)
                     if remove_role:
                         await member.remove_roles(server_role)
                         print(f"Removed role {server_role.name} from {member.display_name}")
                     else:
                         await member.add_roles(server_role)
                         print(f"Gave role {server_role.name} to {member.display_name}")
+                        # Send welcome message
+                        welcome_channel_id = int(role["channel_link"].split("/")[-1])
+                        welcome_channel = await client.fetch_channel(welcome_channel_id)
+                        await welcome_channel.send(f"Welcome to the channel, {member.mention}!")
                 else:
                     print(f"Role {role['name']} not found")
+
 
 if __name__ == "__main__":
     intents = discord.Intents.default()
@@ -122,6 +129,10 @@ if __name__ == "__main__":
         guild=discord.Object(id=GUILD_ID)
     )
     async def verify_command(interaction: discord.Interaction):
+        if interaction.channel_id != int(ROLES_CHANNEL_ID):
+            channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
+            await interaction.response.send_message(f"This command can only be used here: {channel.mention}", ephemeral=True)
+            return
         update_db()
         db = EdgeDB()
         user = db.get_sponsor_by_discord_id(interaction.user.id)
