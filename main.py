@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import tasks
-from config import GUILD_ID, GH_SPONSORS_ROLE_ID, ROLES_CHANNEL_ID, ROLES_MESSAGE_ID, REQUIRED_ROLES, BOT_TOKEN, GH_REPOS
+from config import GUILD_ID, GH_SPONSORS_ROLE_ID, ROLES_CHANNEL_ID, ROLES_MESSAGE_ID, REQUIRED_ROLES, BOT_TOKEN, GH_REPOS, GH_SPONSORS_URL
 import emoji
 
 from db import EdgeDB
@@ -134,6 +134,7 @@ if __name__ == "__main__":
                 print(f"Gave sponsor role to {discord_display_name}")
             else:
                 await interaction.user.remove_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
+                await interaction.response.send_message(f"You are not a sponsor. You can become one here: {GH_SPONSORS_URL}", ephemeral=True)
                 print(f"Removed sponsor role from {discord_display_name}")
             if user.is_contributor:
                 roles = get_roles_from_contributor_repos(user.contributed_to_repos)
