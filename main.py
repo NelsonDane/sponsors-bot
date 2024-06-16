@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import tasks
-from config import GUILD_ID, GH_SPONSORS_ROLE_ID, ROLES_CHANNEL_ID, ROLES_MESSAGE_ID, REQUIRED_ROLES, BOT_TOKEN, GH_REPOS, GH_SPONSORS_URL
+from config import GUILD_ID, GH_SPONSORS_ROLE_ID, BOT_TOKEN, GH_REPOS, GH_SPONSORS_URL, DISCORD_ROLES_LIST
 import emoji
 
 from db import EdgeDB
@@ -40,24 +40,29 @@ def get_roles_from_message(roles_message):
     return roles
 
 async def roles_message_refresh():
-    channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
-    roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
-    roles_message_text = roles_message.content
-    roles = get_roles_from_message(roles_message_text)
-    reactions = roles_message.reactions
-    for role in roles:
-        await roles_message.add_reaction(role["emoji"])
-        print(f"Added reaction {role['emoji']}")
-    for reaction in reactions:
-        if reaction.emoji not in [role["emoji"] for role in roles]:
-            await roles_message.remove_reaction(reaction.emoji, client.user)
-            print(f"Removed reaction {reaction.emoji}")
+    for DISCORD_ROLES in DISCORD_ROLES_LIST:
+        channel = await client.fetch_channel(int(DISCORD_ROLES["ROLES_CHANNEL_ID"]))
+        roles_message = await channel.fetch_message(int(DISCORD_ROLES["ROLES_MESSAGE_ID"]))
+        roles_message_text = roles_message.content
+        roles = get_roles_from_message(roles_message_text)
+        reactions = roles_message.reactions
+        for role in roles:
+            await roles_message.add_reaction(role["emoji"])
+            print(f"Added reaction {role['emoji']}")
+        for reaction in reactions:
+            if reaction.emoji not in [role["emoji"] for role in roles]:
+                await roles_message.remove_reaction(reaction.emoji, client.user)
+                print(f"Removed reaction {reaction.emoji}")
     print("Roles message refreshed")
 
 async def role_message_control(payload, remove_role=False):
-    if payload.message_id == int(ROLES_MESSAGE_ID) and payload.user_id != client.user.id:
-        channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
-        roles_message = await channel.fetch_message(int(ROLES_MESSAGE_ID))
+    message_ids = [int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
+    if payload.message_id in message_ids and payload.user_id != client.user.id:
+        for DISCORD_ROLES in DISCORD_ROLES_LIST:
+            roles_channel_id = int(DISCORD_ROLES["ROLES_CHANNEL_ID"])
+            required_roles = DISCORD_ROLES["REQUIRED_ROLES"]
+        channel = await client.fetch_channel(int(roles_channel_id))
+        roles_message = await channel.fetch_message(int(payload.message_id))
         roles_message = roles_message.content
         roles = get_roles_from_message(roles_message)
         for role in roles:
@@ -65,7 +70,7 @@ async def role_message_control(payload, remove_role=False):
                 guild = client.get_guild(payload.guild_id)
                 member = await guild.fetch_member(payload.user_id)
                 member_role_ids = [role.id for role in member.roles]
-                intersection = set(member_role_ids).intersection(set(REQUIRED_ROLES))
+                intersection = set(member_role_ids).intersection(set(required_roles))
                 if not intersection:
                     print(f"{member.display_name} does not have required roles for {role['name']}")
                     return
@@ -94,7 +99,8 @@ if __name__ == "__main__":
 
     @client.event
     async def on_raw_message_edit(payload):
-        if payload.channel_id == int(ROLES_CHANNEL_ID) and payload.message_id == int(ROLES_MESSAGE_ID):
+        message_ids = [int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
+        if payload.message_id in message_ids:
             await roles_message_refresh()
 
     @client.event
@@ -119,28 +125,29 @@ if __name__ == "__main__":
         guild=discord.Object(id=GUILD_ID)
     )
     async def verify_command(interaction: discord.Interaction):
-        if interaction.channel_id != int(ROLES_CHANNEL_ID):
-            channel = await client.fetch_channel(int(ROLES_CHANNEL_ID))
-            await interaction.response.send_message(f"This command can only be used here: {channel.mention}", ephemeral=True)
+        channel_ids = [int(DISCORD_ROLES["ROLES_CHANNEL_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
+        if interaction.channel_id not in channel_ids:
+            await interaction.response.send_message(f"This command cannot be used in this channel.", ephemeral=True)
             return
         update_db()
         db = EdgeDB()
         user = db.get_sponsor_by_discord_id(interaction.user.id)
         discord_display_name = interaction.user.display_name
         if user:
+            await interaction.response.send_message("You were found, checking your status...", ephemeral=True)
             if user.is_currently_sponsoring:
                 await interaction.user.add_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
-                await interaction.response.send_message("Awesome, you are a sponsor! I have given you your roles", ephemeral=True)
+                await interaction.followup.send("Awesome, you are a sponsor! I have given you your roles", ephemeral=True)
                 print(f"Gave sponsor role to {discord_display_name}")
             else:
                 await interaction.user.remove_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
-                await interaction.response.send_message(f"You are not a sponsor. You can become one here: {GH_SPONSORS_URL}", ephemeral=True)
+                await interaction.followup.send(f"You are not a sponsor. You can become one here: {GH_SPONSORS_URL}", ephemeral=True)
                 print(f"Removed sponsor role from {discord_display_name}")
             if user.is_contributor:
                 roles = get_roles_from_contributor_repos(user.contributed_to_repos)
                 for role in roles:
                     await interaction.user.add_roles(discord.Object(id=role))
-                await interaction.response.send_message("Thanks, you are a GitHub contributor! I have given you your roles", ephemeral=True)
+                await interaction.followup.send("Thanks, you are a GitHub contributor! I have given you your roles", ephemeral=True)
                 print(f"Gave contributor role to {discord_display_name}")
             else:
                 roles = (x["REPO_ROLE_ID"] for x in GH_REPOS.values())
