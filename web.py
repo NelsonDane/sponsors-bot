@@ -31,20 +31,26 @@ def main():
 
 @app.route("/oauth2")
 def oauth2():
-    if not request.args.get("code"):
-        return "Error: no code found in request"
-
-    code = request.args.get("code")
-
-    access = client_oauth2.exchange_code(code)
-
+    # Get code from redirect
+    code = request.args.get("code", None)
+    if code is None:
+        return "Error: No code provided from redirect"
+    # Exchange code for access token
+    try:
+        access = client_oauth2.exchange_code(code)
+    except Exception as e:
+        if "invalid/don't match" in str(e):
+            return "Please run /verify again instead of refreshing the page."
+        return str(e)
+    # Get user info
     identify = access.fetch_identify()
     connections = access.fetch_connections()
+    db = EdgeDB()
     for connection in connections:
         if connection["type"] == "github":
+            # GitHub connection found
             gh_username = connection["name"]
             gh_id = connection["id"]
-            db = EdgeDB()
             if not db.get_sponsor_by_gh_id(gh_id):
                 db.create_sponsor(
                     gh_id=gh_id,
@@ -66,7 +72,9 @@ def oauth2():
                     gh_id=gh_id,
                     discord_code=code,
                 )
-    return "Success! You can now close this tab."
+            return "Connection Success! Now go back to Discord and run /verify one more time."
+    # No GitHub connection found
+    return "GitHub connection not found. Please connect your GitHub account."
 
 if __name__ == "__main__":
     ip = check_db()

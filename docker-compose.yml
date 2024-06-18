@@ -13,6 +13,12 @@ services:
     depends_on:
       - edgedb
 
+  cloudflare:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare
+    restart: always
+    command: tunnel run --token ${CLOUDFLARE_TOKEN}
+
   bot:
     build:
       context: .

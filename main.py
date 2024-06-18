@@ -36,7 +36,6 @@ def get_roles_from_message(roles_message):
             "channel_link": str(role[1:].split("(")[1][:-1])
         }
         roles.append(role_dict)
-    print(f"Fetched roles: {roles}")
     return roles
 
 async def roles_message_refresh():
@@ -59,12 +58,12 @@ async def role_message_control(payload, remove_role=False):
     message_ids = [int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
     if payload.message_id in message_ids and payload.user_id != client.user.id:
         for DISCORD_ROLES in DISCORD_ROLES_LIST:
-            roles_channel_id = int(DISCORD_ROLES["ROLES_CHANNEL_ID"])
-            required_roles = DISCORD_ROLES["REQUIRED_ROLES"]
-        channel = await client.fetch_channel(int(roles_channel_id))
+            if int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) == payload.message_id:
+                required_roles = DISCORD_ROLES["REQUIRED_ROLES"]
+        channel = await client.fetch_channel(payload.channel_id)
         roles_message = await channel.fetch_message(int(payload.message_id))
-        roles_message = roles_message.content
-        roles = get_roles_from_message(roles_message)
+        roles_message_str = roles_message.content
+        roles = get_roles_from_message(roles_message_str)
         for role in roles:
             if role["emoji"] == payload.emoji.name:
                 guild = client.get_guild(payload.guild_id)
@@ -73,6 +72,7 @@ async def role_message_control(payload, remove_role=False):
                 intersection = set(member_role_ids).intersection(set(required_roles))
                 if not intersection:
                     print(f"{member.display_name} does not have required roles for {role['name']}")
+                    await roles_message.remove_reaction(payload.emoji, member)
                     return
                 server_roles = await guild.fetch_roles()
                 server_role = discord.utils.get(server_roles, name=role["name"])
@@ -90,10 +90,56 @@ async def role_message_control(payload, remove_role=False):
                 else:
                     print(f"Role {role['name']} not found")
 
+async def give_old_reaction_roles():
+    for DISCORD_ROLES in DISCORD_ROLES_LIST:
+        roles_channel_id = int(DISCORD_ROLES["ROLES_CHANNEL_ID"])
+        channel = await client.fetch_channel(roles_channel_id)
+        roles_message = await channel.fetch_message(int(DISCORD_ROLES["ROLES_MESSAGE_ID"]))
+        roles_message_text = roles_message.content
+        roles_dict = get_roles_from_message(roles_message_text)
+        roles_message_reactions = roles_message.reactions
+        for reaction in roles_message_reactions:
+            reaction_users = [user async for user in reaction.users()]
+            if client.user in reaction_users:
+                for user in reaction_users:
+                    if user != client.user:
+                        fetched_user = await client.fetch_user(user.id)
+                        member = await client.get_guild(GUILD_ID).fetch_member(fetched_user.id)
+                        user_roles = [role.id for role in member.roles]
+                        for role_item in roles_dict:
+                            if role_item["emoji"] == reaction.emoji:
+                                role_in_question = role_item["name"]
+                                role_in_question = discord.utils.get(member.guild.roles, name=role_in_question)
+                        intersection = set(user_roles).intersection(set(DISCORD_ROLES["REQUIRED_ROLES"]))
+                        if intersection:
+                            await member.add_roles(role_in_question)
+                        else:
+                            print(f"{member.display_name} does not have required roles for {role_in_question}. Removing role.")
+                            await member.remove_roles(role_in_question)
+                            await reaction.remove(member)
+    print("Old reactions updated")
+
+async def prune_old_sponsors():
+    # Remove roles from sponsors that are no longer sponsoring
+    db = EdgeDB()
+    users = [member async for member in client.get_guild(GUILD_ID).fetch_members()]
+    for user in users:
+        found = db.get_sponsor_by_discord_id(user.id)
+        if found:
+            if not found.is_currently_sponsoring:
+                await user.remove_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
+                print(f"Removed sponsor role from {user.display_name}")
+            if not found.is_contributor:
+                roles = (x["REPO_ROLE_ID"] for x in GH_REPOS.values())
+                for role in roles:
+                    await user.remove_roles(discord.Object(id=role))
+                print(f"Removed contributor role from {user.display_name}")
+    print("Old sponsors pruned")
 
 if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.messages = True
+    intents.members = True
     client = discord.Client(intents=intents)
     tree = app_commands.CommandTree(client)
 
@@ -127,14 +173,15 @@ if __name__ == "__main__":
     async def verify_command(interaction: discord.Interaction):
         channel_ids = [int(DISCORD_ROLES["ROLES_CHANNEL_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
         if interaction.channel_id not in channel_ids:
-            await interaction.response.send_message(f"This command cannot be used in this channel.", ephemeral=True)
+            await interaction.response.send_message("This command cannot be used in this channel.", ephemeral=True)
             return
+        await interaction.response.send_message("Starting the verification...")
         update_db()
         db = EdgeDB()
         user = db.get_sponsor_by_discord_id(interaction.user.id)
         discord_display_name = interaction.user.display_name
         if user:
-            await interaction.response.send_message("You were found, checking your status...", ephemeral=True)
+            await interaction.followup.send("You were found, checking your status...", ephemeral=True)
             if user.is_currently_sponsoring:
                 await interaction.user.add_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
                 await interaction.followup.send("Awesome, you are a sponsor! I have given you your roles", ephemeral=True)
@@ -160,7 +207,7 @@ if __name__ == "__main__":
                     await thread.delete()
                     print(f"Deleted thread {thread.name}")
         else:
-            await interaction.response.send_message("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
+            await interaction.followup.send("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
             # Make new private thread
             thread_name = f"{discord_display_name}'s Thread"
             user_thread = None
@@ -175,12 +222,30 @@ if __name__ == "__main__":
             await user_thread.add_user(interaction.user)
             await user_thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
             await user_thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
-            await user_thread.send("Please run /verify once you have connected your GitHub account.")
+            await user_thread.send("Please run /verify in the other channel again once you have connected your GitHub account.")
+
+    @tree.command(
+        name="prune",
+        description="Prune old sponsors",
+        guild=discord.Object(id=GUILD_ID)
+    )
+    async def prune_command(interaction: discord.Interaction):
+        await interaction.response.send_message("Pruning old sponsors...", ephemeral=True)
+        await prune_old_sponsors()
+        await interaction.followup.send("Old sponsors pruned", ephemeral=True)
 
     @tasks.loop(hours=1)
     async def update_db_loop():
         update_db()
-        print("Database updated")
+        print("Database auto-updated")
+
+    @tasks.loop(hours=1)
+    async def old_reactions_loop():
+        give_old_reaction_roles()
+
+    @tasks.loop(minutes=5)
+    async def prune_old_sponsors_loop():
+        prune_old_sponsors()
 
     @client.event
     async def on_ready():
@@ -188,10 +253,13 @@ if __name__ == "__main__":
         print(f"Logged in as {client.user}")
         update_db()
         await roles_message_refresh()
+        await give_old_reaction_roles()
+        await prune_old_sponsors()
         try:
             update_db_loop.start()
         except RuntimeError:
-            print("Loop already running")
+            # Loop already running
+            pass
 
     # Start stuff
     client.run(BOT_TOKEN)
