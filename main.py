@@ -16,6 +16,7 @@ def update_db():
     update_contributors(db)
 
 def get_roles_from_contributor_repos(contributed_to_repos):
+    # Get roles from the repos the user has contributed to
     roles = []
     for repo in contributed_to_repos:
         for gh_repo in GH_REPOS:
@@ -24,6 +25,7 @@ def get_roles_from_contributor_repos(contributed_to_repos):
     return roles
 
 def get_roles_from_message(roles_message):
+    # Get roles from the roles message
     roles_message = roles_message.split("*")[1:]
     roles = []
     for role in roles_message:
@@ -38,67 +40,72 @@ def get_roles_from_message(roles_message):
         roles.append(role_dict)
     return roles
 
+def get_required_roles_from_message(roles_message_id):
+    # Get required roles for the message
+    for DISCORD_ROLES in DISCORD_ROLES_LIST:
+        if int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) == roles_message_id:
+            required_roles = DISCORD_ROLES["REQUIRED_ROLES"]
+    return required_roles
+
 async def roles_message_refresh():
+    # Make sure all roles are added to the roles message so users can react to them
     for DISCORD_ROLES in DISCORD_ROLES_LIST:
         channel = await client.fetch_channel(int(DISCORD_ROLES["ROLES_CHANNEL_ID"]))
         roles_message = await channel.fetch_message(int(DISCORD_ROLES["ROLES_MESSAGE_ID"]))
-        roles_message_text = roles_message.content
-        roles = get_roles_from_message(roles_message_text)
-        reactions = roles_message.reactions
+        roles = get_roles_from_message(roles_message.content)
         for role in roles:
             await roles_message.add_reaction(role["emoji"])
-            print(f"Added reaction {role['emoji']}")
-        for reaction in reactions:
+        for reaction in roles_message.reactions:
             if reaction.emoji not in [role["emoji"] for role in roles]:
                 await roles_message.remove_reaction(reaction.emoji, client.user)
-                print(f"Removed reaction {reaction.emoji}")
     print("Roles message refreshed")
 
+async def send_temp_message(channel_id, message, time=30):
+    # Send a temporary message to a channel
+    channel = await client.fetch_channel(channel_id)
+    temp_message = await channel.send(message)
+    await temp_message.delete(delay=time)
+
 async def role_message_control(payload, remove_role=False):
+    # Add/remove roles based on reactions and required roles
     message_ids = [int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
     if payload.message_id in message_ids and payload.user_id != client.user.id:
-        for DISCORD_ROLES in DISCORD_ROLES_LIST:
-            if int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) == payload.message_id:
-                required_roles = DISCORD_ROLES["REQUIRED_ROLES"]
+        required_roles = get_required_roles_from_message(payload.message_id)
         channel = await client.fetch_channel(payload.channel_id)
         roles_message = await channel.fetch_message(int(payload.message_id))
-        roles_message_str = roles_message.content
-        roles = get_roles_from_message(roles_message_str)
-        for role in roles:
-            if role["emoji"] == payload.emoji.name:
-                guild = client.get_guild(payload.guild_id)
-                member = await guild.fetch_member(payload.user_id)
-                member_role_ids = [role.id for role in member.roles]
+        roles = get_roles_from_message(roles_message.content)
+        if payload.emoji.name in [role["emoji"] for role in roles]:
+            role = [x for x in roles if x["emoji"] == payload.emoji.name][0]
+            guild = client.get_guild(payload.guild_id)
+            member = await guild.fetch_member(payload.user_id)
+            member_role_ids = [role.id for role in member.roles]
+            if not remove_role:
                 intersection = set(member_role_ids).intersection(set(required_roles))
                 if not intersection:
-                    print(f"{member.display_name} does not have required roles for {role['name']}")
+                    await send_temp_message(payload.channel_id, f"{member.mention}: You do not have the required roles to get the {role['name']} role. Please run /verify")
                     await roles_message.remove_reaction(payload.emoji, member)
-                    return
-                server_roles = await guild.fetch_roles()
-                server_role = discord.utils.get(server_roles, name=role["name"])
-                if server_role:
-                    if remove_role:
-                        await member.remove_roles(server_role)
-                        print(f"Removed role {server_role.name} from {member.display_name}")
-                    else:
-                        await member.add_roles(server_role)
-                        print(f"Gave role {server_role.name} to {member.display_name}")
-                        # Send welcome message
-                        welcome_channel_id = int(role["channel_link"].split("/")[-1])
-                        welcome_channel = await client.fetch_channel(welcome_channel_id)
-                        await welcome_channel.send(f"Welcome to the channel, {member.mention}!")
+                    remove_role = True
+            server_roles = await guild.fetch_roles()
+            server_role = discord.utils.get(server_roles, name=role["name"])
+            if server_role:
+                if remove_role:
+                    await member.remove_roles(server_role)
+                    print(f"Removed role {server_role.name} from {member.display_name}")
                 else:
-                    print(f"Role {role['name']} not found")
+                    await member.add_roles(server_role)
+                    print(f"Gave role {server_role.name} to {member.display_name}")
+                    # Send welcome message
+                    welcome_channel_id = int(role["channel_link"].split("/")[-1])
+                    welcome_channel = await client.fetch_channel(welcome_channel_id)
+                    await welcome_channel.send(f"Welcome to the channel, {member.mention}!")
 
 async def give_old_reaction_roles():
+    # Give roles to users who have reacted to the roles message while the bot was offline
     for DISCORD_ROLES in DISCORD_ROLES_LIST:
-        roles_channel_id = int(DISCORD_ROLES["ROLES_CHANNEL_ID"])
-        channel = await client.fetch_channel(roles_channel_id)
+        channel = await client.fetch_channel(int(DISCORD_ROLES["ROLES_CHANNEL_ID"]))
         roles_message = await channel.fetch_message(int(DISCORD_ROLES["ROLES_MESSAGE_ID"]))
-        roles_message_text = roles_message.content
-        roles_dict = get_roles_from_message(roles_message_text)
-        roles_message_reactions = roles_message.reactions
-        for reaction in roles_message_reactions:
+        roles_dict = get_roles_from_message(roles_message.content)
+        for reaction in roles_message.reactions:
             reaction_users = [user async for user in reaction.users()]
             if client.user in reaction_users:
                 for user in reaction_users:
@@ -119,22 +126,46 @@ async def give_old_reaction_roles():
                             await reaction.remove(member)
     print("Old reactions updated")
 
-async def prune_old_sponsors():
-    # Remove roles from sponsors that are no longer sponsoring
+async def update_sponsors_and_contributors():
+    # Update sponsors and contributors from DB
     db = EdgeDB()
     users = [member async for member in client.get_guild(GUILD_ID).fetch_members()]
     for user in users:
+        sponsor_remove = True
+        contributor_remove = True
         found = db.get_sponsor_by_discord_id(user.id)
         if found:
-            if not found.is_currently_sponsoring:
+            if found.is_currently_sponsoring:
+                sponsor_remove = False
+            if found.is_contributor:
+                contributor_remove = False
+        user_roles = [role.id for role in user.roles]
+        if sponsor_remove:
+            if GH_SPONSORS_ROLE_ID in user_roles:
+                # Remove sponsor role
                 await user.remove_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
                 print(f"Removed sponsor role from {user.display_name}")
-            if not found.is_contributor:
-                roles = (x["REPO_ROLE_ID"] for x in GH_REPOS.values())
-                for role in roles:
+        else:
+            if GH_SPONSORS_ROLE_ID not in user_roles:
+                # Add sponsor role
+                await user.add_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
+                print(f"Gave sponsor role to {user.display_name}")
+        if contributor_remove:
+            # Remove all contributor roles
+            roles = (x["REPO_ROLE_ID"]["define"] for x in GH_REPOS)
+            for role in roles:
+                if role in user_roles:
                     await user.remove_roles(discord.Object(id=role))
-                print(f"Removed contributor role from {user.display_name}")
-    print("Old sponsors pruned")
+                    print(f"Removed roles from {user.display_name}")
+        else:
+            # Add contributor roles
+            roles = get_roles_from_contributor_repos(found.contributed_to_repos)
+            for role in roles:
+                if role not in user_roles:
+                    await user.add_roles(discord.Object(id=role))
+                    print(f"Gave contributor role to {user.display_name}")
+    print("Sponsors and contributors updated")
+    await give_old_reaction_roles()
 
 if __name__ == "__main__":
     intents = discord.Intents.default()
@@ -175,7 +206,7 @@ if __name__ == "__main__":
         if interaction.channel_id not in channel_ids:
             await interaction.response.send_message("This command cannot be used in this channel.", ephemeral=True)
             return
-        await interaction.response.send_message("Starting the verification...")
+        await interaction.response.send_message("Starting the verification...", ephemeral=True)
         update_db()
         db = EdgeDB()
         user = db.get_sponsor_by_discord_id(interaction.user.id)
@@ -231,7 +262,7 @@ if __name__ == "__main__":
     )
     async def prune_command(interaction: discord.Interaction):
         await interaction.response.send_message("Pruning old sponsors...", ephemeral=True)
-        await prune_old_sponsors()
+        await update_sponsors_and_contributors()
         await interaction.followup.send("Old sponsors pruned", ephemeral=True)
 
     @tasks.loop(hours=1)
@@ -239,13 +270,9 @@ if __name__ == "__main__":
         update_db()
         print("Database auto-updated")
 
-    @tasks.loop(hours=1)
-    async def old_reactions_loop():
-        give_old_reaction_roles()
-
     @tasks.loop(minutes=5)
-    async def prune_old_sponsors_loop():
-        prune_old_sponsors()
+    async def update_sponsors_loop():
+        await update_sponsors_and_contributors()
 
     @client.event
     async def on_ready():
@@ -253,10 +280,9 @@ if __name__ == "__main__":
         print(f"Logged in as {client.user}")
         update_db()
         await roles_message_refresh()
-        await give_old_reaction_roles()
-        await prune_old_sponsors()
         try:
             update_db_loop.start()
+            update_sponsors_loop.start()
         except RuntimeError:
             # Loop already running
             pass
