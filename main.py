@@ -57,7 +57,7 @@ async def roles_message_refresh():
             await roles_message.add_reaction(role["emoji"])
         for reaction in roles_message.reactions:
             if reaction.emoji not in [role["emoji"] for role in roles]:
-                await roles_message.remove_reaction(reaction.emoji, client.user)
+                await roles_message.clear_reaction(reaction.emoji)
     print("Roles message refreshed")
 
 async def send_temp_message(channel_id, message, time=60):
@@ -112,6 +112,7 @@ async def give_old_reaction_roles():
                     if user != client.user:
                         fetched_user = await client.fetch_user(user.id)
                         member = await client.get_guild(GUILD_ID).fetch_member(fetched_user.id)
+                        reaction_users.append(member)
                         user_roles = [role.id for role in member.roles]
                         for role_item in roles_dict:
                             if role_item["emoji"] == reaction.emoji:
@@ -141,8 +142,8 @@ async def update_sponsors_and_contributors():
                 contributor_remove = False
         user_roles = [role.id for role in user.roles]
         if sponsor_remove:
+            # Remove sponsor role
             if GH_SPONSORS_ROLE_ID in user_roles:
-                # Remove sponsor role
                 await user.remove_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
                 print(f"Removed sponsor role from {user.display_name}")
         else:
