@@ -16,7 +16,7 @@ app = Flask(__name__)
 def check_db():
     try:
         # Try to ping Docker db
-        host = ping('web', count=3, interval=0.2, timeout=1, privileged=False)
+        host = ping('web', count=3, interval=0.2, timeout=1, privileged=True)
         if host.is_alive:
             return 'web'
     except NameLookupError:

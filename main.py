@@ -60,7 +60,7 @@ async def roles_message_refresh():
                 await roles_message.remove_reaction(reaction.emoji, client.user)
     print("Roles message refreshed")
 
-async def send_temp_message(channel_id, message, time=30):
+async def send_temp_message(channel_id, message, time=60):
     # Send a temporary message to a channel
     channel = await client.fetch_channel(channel_id)
     temp_message = await channel.send(message)
@@ -97,7 +97,7 @@ async def role_message_control(payload, remove_role=False):
                     # Send welcome message
                     welcome_channel_id = int(role["channel_link"].split("/")[-1])
                     welcome_channel = await client.fetch_channel(welcome_channel_id)
-                    await welcome_channel.send(f"Welcome to the channel, {member.mention}!")
+                    await send_temp_message(welcome_channel_id, f"Welcome to the channel, {member.mention}!")
 
 async def give_old_reaction_roles():
     # Give roles to users who have reacted to the roles message while the bot was offline
