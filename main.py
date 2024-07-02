@@ -96,11 +96,11 @@ async def role_message_control(payload, remove_role=False):
                     print(f"Gave role {server_role.name} to {member.display_name}")
                     # Send welcome message
                     welcome_channel_id = int(role["channel_link"].split("/")[-1])
-                    welcome_channel = await client.fetch_channel(welcome_channel_id)
                     await send_temp_message(welcome_channel_id, f"Welcome to the channel, {member.mention}!")
 
 async def give_old_reaction_roles():
     # Give roles to users who have reacted to the roles message while the bot was offline
+    all_users = [member async for member in client.get_guild(GUILD_ID).fetch_members()]
     for DISCORD_ROLES in DISCORD_ROLES_LIST:
         channel = await client.fetch_channel(int(DISCORD_ROLES["ROLES_CHANNEL_ID"]))
         roles_message = await channel.fetch_message(int(DISCORD_ROLES["ROLES_MESSAGE_ID"]))
@@ -112,12 +112,10 @@ async def give_old_reaction_roles():
                     if user != client.user:
                         fetched_user = await client.fetch_user(user.id)
                         member = await client.get_guild(GUILD_ID).fetch_member(fetched_user.id)
-                        reaction_users.append(member)
                         user_roles = [role.id for role in member.roles]
                         for role_item in roles_dict:
                             if role_item["emoji"] == reaction.emoji:
-                                role_in_question = role_item["name"]
-                                role_in_question = discord.utils.get(member.guild.roles, name=role_in_question)
+                                role_in_question = discord.utils.get(member.guild.roles, name=role_item["name"])
                         intersection = set(user_roles).intersection(set(DISCORD_ROLES["REQUIRED_ROLES"]))
                         if intersection:
                             await member.add_roles(role_in_question)
@@ -125,10 +123,17 @@ async def give_old_reaction_roles():
                             print(f"{member.display_name} does not have required roles for {role_in_question}. Removing role.")
                             await member.remove_roles(role_in_question)
                             await reaction.remove(member)
+            # Remove role from users who didn't react
+            users_not_reacted = [user for user in all_users if user not in reaction_users]
+            for user in users_not_reacted:
+                user_roles = [role.id for role in user.roles]
+                if role_in_question.id in user_roles:
+                    await user.remove_roles(role_in_question)
+                    print(f"{user.display_name} did not react to {role_in_question}. Removing role.")
     print("Old reactions updated")
 
 async def update_sponsors_and_contributors():
-    # Update sponsors and contributors from DB
+    # If Sponsor or Contributor status changes in DB, update roles
     db = EdgeDB()
     users = [member async for member in client.get_guild(GUILD_ID).fetch_members()]
     for user in users:
