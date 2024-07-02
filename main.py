@@ -203,7 +203,9 @@ if __name__ == "__main__":
     )
     async def verify_command(interaction: discord.Interaction):
         channel_ids = [int(DISCORD_ROLES["ROLES_CHANNEL_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
-        if interaction.channel_id not in channel_ids:
+        is_user_thread = (interaction.channel.type == discord.ChannelType.private_thread) and (interaction.channel.name == f"{interaction.user.display_name}'s Thread")
+        if (interaction.channel_id not in channel_ids) and not is_user_thread:
+            # Only allow command in roles channel or user thread
             await interaction.response.send_message("This command cannot be used in this channel.", ephemeral=True)
             return
         await interaction.response.send_message("Starting the verification...", ephemeral=True)

@@ -74,7 +74,7 @@ def oauth2():
                 )
             return "Connection Success! Now go back to Discord and run /verify one more time."
     # No GitHub connection found
-    return "GitHub connection not found. Please connect your GitHub account."
+    return "GitHub connection not found. Please connect your GitHub account in Discord connection settings (doesn't have to be public). Then run /verify again."
 
 if __name__ == "__main__":
     ip = check_db()
