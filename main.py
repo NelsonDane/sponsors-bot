@@ -237,7 +237,7 @@ if __name__ == "__main__":
             await interaction.followup.send("You are all set! This channel will be deleted in 60 seconds.", ephemeral=True)
             # Clean up old threads
             if interaction.channel.type == discord.ChannelType.private_thread:
-                channels_to_clean = interaction.channel
+                channels_to_clean = [interaction.channel]
             else:
                 channels_to_clean = interaction.channel.threads
             for thread in channels_to_clean:
