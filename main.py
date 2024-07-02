@@ -1,3 +1,4 @@
+import datetime
 import discord
 from discord import app_commands
 from discord.ext import tasks
@@ -235,10 +236,10 @@ if __name__ == "__main__":
                 await interaction.followup.send("Thanks, you are a GitHub contributor! I have given you your roles", ephemeral=True)
                 print(f"Gave contributor role to {discord_display_name}")
             else:
-                roles = (x["REPO_ROLE_ID"] for x in GH_REPOS.values())
+                roles = (x["REPO_ROLE_ID"]["define"] for x in GH_REPOS)
                 for role in roles:
                     await interaction.user.remove_roles(discord.Object(id=role))
-                print(f"Removed contributor role from {discord_display_name}")
+                print(f"Removed all contributor roles from {discord_display_name}")
             await interaction.followup.send("You are all set! This channel will be deleted in 60 seconds.", ephemeral=True)
             # Clean up old threads
             if interaction.channel.type == discord.ChannelType.private_thread:
@@ -269,13 +270,20 @@ if __name__ == "__main__":
 
     @tasks.loop(hours=1)
     async def update_db_loop():
+        print("=====================================")
+        print(f"Auto-updating database {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         update_db()
         print("Database auto-updated")
+        print("=====================================")
 
     @tasks.loop(minutes=5)
     async def update_sponsors_loop():
+        print("=====================================")
+        print(f"Auto-updating sponsors {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         await update_sponsors_and_contributors()
         await give_old_reaction_roles()
+        print("Sponsors auto-updated")
+        print("=====================================")
 
     @client.event
     async def on_ready():
