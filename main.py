@@ -166,7 +166,6 @@ async def update_sponsors_and_contributors():
                     await user.add_roles(discord.Object(id=role))
                     print(f"Gave contributor role to {user.display_name}")
     print("Sponsors and contributors updated")
-    await give_old_reaction_roles()
 
 if __name__ == "__main__":
     intents = discord.Intents.default()
@@ -256,16 +255,6 @@ if __name__ == "__main__":
             await user_thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
             await user_thread.send("Please run /verify in the other channel again once you have connected your GitHub account.")
 
-    @tree.command(
-        name="prune",
-        description="Prune old sponsors",
-        guild=discord.Object(id=GUILD_ID)
-    )
-    async def prune_command(interaction: discord.Interaction):
-        await interaction.response.send_message("Pruning old sponsors...", ephemeral=True)
-        await update_sponsors_and_contributors()
-        await interaction.followup.send("Old sponsors pruned", ephemeral=True)
-
     @tasks.loop(hours=1)
     async def update_db_loop():
         update_db()
@@ -274,6 +263,7 @@ if __name__ == "__main__":
     @tasks.loop(minutes=5)
     async def update_sponsors_loop():
         await update_sponsors_and_contributors()
+        await give_old_reaction_roles()
 
     @client.event
     async def on_ready():
