@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.web
     container_name: web
+    restart: always
     volumes:
       - ./config.yaml:/app/config.yaml
     environment:
@@ -24,6 +25,7 @@ services:
       context: .
       dockerfile: Dockerfile.bot
     container_name: bot
+    restart: always
     volumes:
       - ./config.yaml:/app/config.yaml
     environment:
@@ -34,6 +36,7 @@ services:
   edgedb:
     image: edgedb/edgedb:latest
     container_name: edgedb
+    restart: always
     environment:
       - EDGEDB_SERVER_SECURITY=insecure_dev_mode
       - EDGEDB_SERVER_ADMIN_UI=enabled
