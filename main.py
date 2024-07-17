@@ -203,6 +203,48 @@ if __name__ == "__main__":
         await interaction.response.send_message("Pong!", ephemeral=True)
 
     @tree.command(
+        name="whois",
+        description="See who a Discord user is on GitHub",
+        guild=discord.Object(id=GUILD_ID)
+    )
+    async def whois_command(interaction: discord.Interaction, discord_user: discord.Member):
+        # Only allow admins to use this command
+        if not interaction.user.guild_permissions.administrator:
+            print(f"{interaction.user.display_name} tried to use whois command without permissions to see {discord_user.display_name}")
+            await interaction.response.send_message("You do not have the required permissions to use this command.", ephemeral=True)
+            return
+        await interaction.response.send_message("Searching for user...", ephemeral=True)
+        print(f"{interaction.user.display_name} searched for Discord user: {discord_user.display_name}")
+        db = EdgeDB()
+        user = db.get_sponsor_by_discord_id(discord_user.id)
+        if user:
+            # User found
+            await interaction.followup.send(f"<@{user.discord_id}> is {user.gh_username} on GitHub ({user.gh_url})", ephemeral=True)
+        else:
+            await interaction.followup.send("User not found", ephemeral=True)
+
+    @tree.command(
+        name="ishere",
+        description="Check if a GitHub user is in the server",
+        guild=discord.Object(id=GUILD_ID)
+    )
+    async def ishere_command(interaction: discord.Interaction, gh_username: str):
+        # Only allow admins to use this command
+        if not interaction.user.guild_permissions.administrator:
+            print(f"{interaction.user.display_name} tried to use ishere command without permissions")
+            await interaction.response.send_message("You do not have the required permissions to use this command.", ephemeral=True)
+            return
+        await interaction.response.send_message("Searching for user...", ephemeral=True)
+        print(f"{interaction.user.display_name} searched for GitHub user: {gh_username}")
+        db = EdgeDB()
+        user = db.get_sponsor_by_gh_username(gh_username)
+        if user and user.discord_id:
+            # User found
+            await interaction.followup.send(f"GitHub user {user.gh_username} is <@{user.discord_id}> on Discord", ephemeral=True)
+        else:
+            await interaction.followup.send("User not found in server", ephemeral=True)
+
+    @tree.command(
         name="verify",
         description="Verify your sponsor/contributor status",
         guild=discord.Object(id=GUILD_ID)

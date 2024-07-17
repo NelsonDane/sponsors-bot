@@ -26,6 +26,7 @@ class EdgeDB:
             SELECT DISTINCT Sponsor {
                 gh_id,
                 gh_username,
+                gh_url,
                 discord_name,
                 discord_id,
                 discord_code,
@@ -37,11 +38,29 @@ class EdgeDB:
             LIMIT 1;
         ''', gh_id=int(gh_id))
 
+    def get_sponsor_by_gh_username(self, gh_username):
+        return self.client.query_single('''
+            SELECT Sponsor {
+                gh_id,
+                gh_username,
+                gh_url,
+                discord_name,
+                discord_id,
+                discord_code,
+                contributed_to_repos,
+                is_contributor,
+                is_currently_sponsoring
+            }
+           FILTER str_lower(.gh_username) = str_lower(<str>$gh_username)
+            LIMIT 1;
+        ''', gh_username=gh_username)
+
     def get_sponsor_by_discord_id(self, discord_id):
         return self.client.query_single('''
             SELECT Sponsor {
                 gh_id,
                 gh_username,
+                gh_url,
                 is_contributor,
                 contributed_to_repos,
                 discord_name,
@@ -125,6 +144,7 @@ class EdgeDB:
             SELECT Sponsor {
                 gh_id,
                 gh_username,
+                gh_url,
                 is_contributor,
                 contributed_to_repos,
                 discord_name,
