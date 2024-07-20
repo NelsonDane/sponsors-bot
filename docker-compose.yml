@@ -1,8 +1,6 @@
 services:
   web:
-    build: 
-      context: .
-      dockerfile: Dockerfile.web
+    image: ghcr.io/nelsondane/sponsors-bot-web:latest
     container_name: web
     restart: always
     volumes:
@@ -21,9 +19,7 @@ services:
     command: tunnel run --token ${CLOUDFLARE_TOKEN}
 
   bot:
-    build:
-      context: .
-      dockerfile: Dockerfile.bot
+    image: ghcr.io/nelsondane/sponsors-bot:latest
     container_name: bot
     restart: always
     volumes:
@@ -46,3 +42,19 @@ services:
       - ./dbschema:/dbschema
     ports:
       - 5656:5656
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    hostname: watchtower
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+    command:
+      - edgedb
+      - bot
+      - web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
