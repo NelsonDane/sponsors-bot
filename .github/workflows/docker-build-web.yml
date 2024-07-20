@@ -1,0 +1,27 @@
+on:
+    push:
+      branches:
+        - 'main'
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    call-workflow-dockerhub-build-push:
+        uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@e64ec758b6758d58955cab25a0e330f9bab380dd
+        permissions:
+            contents: read
+            packages: write
+            attestations: write
+            id-token: write
+        with:
+            registry: ghcr.io
+            dockerfile: ./Dockerfile.web
+            image_name: sponsors-bot-web
+            image_tag: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+            should_push: ${{ github.ref_name == 'main' }}
+            platforms: linux/amd64
+        secrets:
+            DOCKER_REGISTRY_USERNAME: ${{ github.repository_owner }}
+            DOCKER_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
