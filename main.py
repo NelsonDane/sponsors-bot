@@ -282,12 +282,13 @@ if __name__ == "__main__":
                 for role in roles:
                     await interaction.user.remove_roles(discord.Object(id=role))
                 print(f"Removed all contributor roles from {discord_display_name}")
-            await interaction.followup.send("You are all set! This channel will be deleted in 60 seconds.", ephemeral=True)
             # Clean up old threads
             if interaction.channel.type == discord.ChannelType.private_thread:
                 channels_to_clean = [interaction.channel]
+                await interaction.followup.send("You are all set! This thread will be deleted in 60 seconds.", ephemeral=True)
             else:
                 channels_to_clean = interaction.channel.threads
+                await interaction.followup.send("You are all set!", ephemeral=True)
             for thread in channels_to_clean:
                 if thread.name == f"{discord_display_name}'s Thread":
                     await thread.delete()
