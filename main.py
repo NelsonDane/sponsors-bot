@@ -84,6 +84,7 @@ async def role_message_control(payload, remove_role=False):
                 intersection = set(member_role_ids).intersection(set(required_roles))
                 if not intersection:
                     await send_temp_message(payload.channel_id, f"{member.mention}: You do not have the required roles to get the {role['name']} role. Please run /verify")
+                    await send_temp_message(payload.channel_id, f"You need one of these roles: {', '.join([discord.utils.get(guild.roles, id=role_id).name for role_id in required_roles])}")
                     await roles_message.remove_reaction(payload.emoji, member)
                     remove_role = True
             server_roles = await guild.fetch_roles()
@@ -121,7 +122,7 @@ async def give_old_reaction_roles():
                         if intersection:
                             await member.add_roles(role_in_question)
                         else:
-                            print(f"{member.display_name} does not have required roles for {role_in_question}. Removing role.")
+                            print(f"{member.display_name} does not have required roles for {role_in_question}. Auto removing role.")
                             await member.remove_roles(role_in_question)
                             await reaction.remove(member)
             # Remove role from users who didn't react
