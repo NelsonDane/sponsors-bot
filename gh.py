@@ -34,6 +34,7 @@ def update_sponsors(db: EdgeDB):
     for user in users:
         if not any(sponsor["node"]["databaseId"] == user.gh_id for sponsor in gh_sponsors):
             db.update_sponsor_is_currently_sponsoring(user.gh_id, False)
+            print(f"User {user.gh_username} is no longer sponsoring")
     for sponsor in gh_sponsors:
         sponsor = sponsor["node"]
         if db.get_sponsor_by_gh_id(sponsor["databaseId"]):

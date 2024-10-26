@@ -113,7 +113,11 @@ async def give_old_reaction_roles():
                 for user in reaction_users:
                     if user != client.user:
                         fetched_user = await client.fetch_user(user.id)
-                        member = await client.get_guild(GUILD_ID).fetch_member(fetched_user.id)
+                        try:
+                            member = await client.get_guild(GUILD_ID).fetch_member(fetched_user.id)
+                        except discord.errors.NotFound:
+                            print(f"User {fetched_user.name} with ID {fetched_user.id} not found in server")
+                            continue
                         user_roles = [role.id for role in member.roles]
                         for role_item in roles_dict:
                             if role_item["emoji"] == reaction.emoji:
