@@ -324,7 +324,7 @@ if __name__ == "__main__":
         print("Database auto-updated")
         print("=====================================")
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(hours=1)
     async def update_sponsors_loop():
         print("=====================================")
         print(f"Auto-updating sponsors {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
