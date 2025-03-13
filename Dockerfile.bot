@@ -6,12 +6,8 @@ WORKDIR /app
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
-# DB
-COPY db.py db.py
-ADD dbschema dbschema
-COPY edgedb.toml edgedb.toml
-
 # Bot
+COPY db.py db.py
 COPY main.py main.py
 COPY gh.py gh.py
 COPY web.py web.py

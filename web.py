@@ -1,6 +1,6 @@
 import discordoauth2
 from flask import Flask, request, redirect
-from db import EdgeDB
+from db import PostgresDB
 from icmplib.exceptions import NameLookupError
 from icmplib import ping
 from config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
@@ -45,7 +45,7 @@ def oauth2():
     # Get user info
     identify = access.fetch_identify()
     connections = access.fetch_connections()
-    db = EdgeDB()
+    db = PostgresDB()
     for connection in connections:
         if connection["type"] == "github":
             # GitHub connection found

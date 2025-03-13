@@ -5,14 +5,14 @@ from discord.ext import tasks
 from config import GUILD_ID, GH_SPONSORS_ROLE_ID, BOT_TOKEN, GH_REPOS, GH_SPONSORS_URL, DISCORD_ROLES_LIST
 import emoji
 
-from db import EdgeDB
+from db import PostgresDB
 from gh import update_sponsors, update_contributors
 from web import generate_uri
 
 EMOJIS = emoji.EMOJI_DATA
 
 def update_db():
-    db = EdgeDB()
+    db = PostgresDB()
     update_sponsors(db)
     update_contributors(db)
 
@@ -140,7 +140,7 @@ async def give_old_reaction_roles():
 
 async def update_sponsors_and_contributors():
     # If Sponsor or Contributor status changes in DB, update roles
-    db = EdgeDB()
+    db = PostgresDB()
     users = [member async for member in client.get_guild(GUILD_ID).fetch_members()]
     for user in users:
         sponsor_remove = True
@@ -220,7 +220,7 @@ if __name__ == "__main__":
             return
         await interaction.response.send_message("Searching for user...", ephemeral=True)
         print(f"{interaction.user.display_name} searched for Discord user: {discord_user.display_name}")
-        db = EdgeDB()
+        db = PostgresDB()
         user = db.get_sponsor_by_discord_id(discord_user.id)
         if user:
             # User found
@@ -241,7 +241,7 @@ if __name__ == "__main__":
             return
         await interaction.response.send_message("Searching for user...", ephemeral=True)
         print(f"{interaction.user.display_name} searched for GitHub user: {gh_username}")
-        db = EdgeDB()
+        db = PostgresDB()
         user = db.get_sponsor_by_gh_username(gh_username)
         if user and user.discord_id:
             # User found
@@ -263,7 +263,7 @@ if __name__ == "__main__":
             return
         await interaction.response.send_message("Starting the verification...", ephemeral=True)
         update_db()
-        db = EdgeDB()
+        db = PostgresDB()
         user = db.get_sponsor_by_discord_id(interaction.user.id)
         discord_display_name = interaction.user.display_name
         if user:

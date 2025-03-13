@@ -1,5 +1,5 @@
 import requests
-from db import EdgeDB
+from db import PostgresDB
 from config import GH_TOKEN, GH_SPONSORS_TIER_ID, GH_REPOS
 
 def get_sponsors():
@@ -28,7 +28,7 @@ def get_sponsors():
         raise Exception(f"Query failed to run by returning code {request.status_code}. {request.text}")
     return request.json()["data"]["viewer"]["sponsors"]["edges"]
 
-def update_sponsors(db: EdgeDB):
+def update_sponsors(db: PostgresDB):
     users = db.get_sponsors()
     gh_sponsors = get_sponsors()
     for user in users:
@@ -68,7 +68,7 @@ def get_contributors():
         contributors += users
     return users
 
-def update_contributors(db: EdgeDB):
+def update_contributors(db: PostgresDB):
     contributors = get_contributors()
     for contributor in contributors:
         if db.get_sponsor_by_gh_id(contributor["id"]):
