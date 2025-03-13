@@ -1,5 +1,11 @@
 import psycopg2
 from config import DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
+from collections import namedtuple
+
+Sponsor = namedtuple('Sponsor', [
+    'gh_id', 'gh_username', 'gh_url', 'discord_name', 'discord_id',
+    'discord_code', 'contributed_to_repos', 'is_contributor', 'is_currently_sponsoring'
+])
 
 class PostgresDB:
     def __init__(self):
@@ -12,7 +18,7 @@ class PostgresDB:
         )
         self.cursor = self.conn.cursor()
 
-    def create_sponsor(self, gh_id, gh_username, discord_id=0, discord_name='', discord_code='', contributed_to_repos=None, is_currently_sponsoring=False):
+    def create_sponsor(self, gh_id, gh_username, discord_id=None, discord_name=None, discord_code=None, contributed_to_repos=None, is_currently_sponsoring=False):
         if self.get_sponsor_by_gh_id(gh_id):
             return
         if contributed_to_repos is None:
@@ -29,19 +35,28 @@ class PostgresDB:
         self.cursor.execute('''
             SELECT * FROM Sponsor WHERE gh_id = %s LIMIT 1
         ''', (gh_id,))
-        return self.cursor.fetchone()
+        result = self.cursor.fetchone()
+        if result:
+            return Sponsor(*result)
+        return None
 
     def get_sponsor_by_gh_username(self, gh_username):
         self.cursor.execute('''
             SELECT * FROM Sponsor WHERE LOWER(gh_username) = LOWER(%s) LIMIT 1
         ''', (gh_username,))
-        return self.cursor.fetchone()
+        result = self.cursor.fetchone()
+        if result:
+            return Sponsor(*result)
+        return None
 
     def get_sponsor_by_discord_id(self, discord_id):
         self.cursor.execute('''
             SELECT * FROM Sponsor WHERE discord_id = %s LIMIT 1
         ''', (discord_id,))
-        return self.cursor.fetchone()
+        result = self.cursor.fetchone()
+        if result:
+            return Sponsor(*result)
+        return None
 
     def update_sponsor_gh_username(self, gh_id, gh_username):
         if not self.get_sponsor_by_gh_id(gh_id):
@@ -93,4 +108,5 @@ class PostgresDB:
 
     def get_sponsors(self):
         self.cursor.execute('SELECT * FROM Sponsor')
-        return self.cursor.fetchall()
+        results = self.cursor.fetchall()
+        return [Sponsor(*result) for result in results]
