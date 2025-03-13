@@ -3,7 +3,7 @@ from config import DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
 from collections import namedtuple
 
 Sponsor = namedtuple('Sponsor', [
-    'gh_id', 'gh_username', 'gh_url', 'discord_name', 'discord_id',
+    'gh_id', 'gh_username', 'gh_url', 'discord_id', 'discord_name',
     'discord_code', 'contributed_to_repos', 'is_contributor', 'is_currently_sponsoring'
 ])
 
