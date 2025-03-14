@@ -68,6 +68,7 @@ async def send_temp_message(channel_id, message, time=60):
     await temp_message.delete(delay=time)
 
 async def role_message_control(payload, remove_role=False):
+    db = PostgresDB()
     # Add/remove roles based on reactions and required roles
     message_ids = [int(DISCORD_ROLES["ROLES_MESSAGE_ID"]) for DISCORD_ROLES in DISCORD_ROLES_LIST]
     if payload.message_id in message_ids and payload.user_id != client.user.id:
@@ -78,7 +79,13 @@ async def role_message_control(payload, remove_role=False):
         if payload.emoji.name in [role["emoji"] for role in roles]:
             role = [x for x in roles if x["emoji"] == payload.emoji.name][0]
             guild = client.get_guild(payload.guild_id)
-            member = await guild.fetch_member(payload.user_id)
+            try:
+                member = await guild.fetch_member(payload.user_id)
+            except discord.errors.NotFound:
+                print(f"User {payload.user_id} not found in server. Removing...")
+                await roles_message.remove_reaction(payload.emoji, discord.Object(id=payload.user_id))
+                db.remove_sponsor_by_discord_id(payload.user_id)
+                return
             member_role_ids = [role.id for role in member.roles]
             if not remove_role:
                 intersection = set(member_role_ids).intersection(set(required_roles))
@@ -101,6 +108,7 @@ async def role_message_control(payload, remove_role=False):
                     await send_temp_message(welcome_channel_id, f"Welcome to the channel, {member.mention}!")
 
 async def give_old_reaction_roles():
+    db = PostgresDB()
     # Give roles to users who have reacted to the roles message while the bot was offline
     all_users = [member async for member in client.get_guild(GUILD_ID).fetch_members()]
     for DISCORD_ROLES in DISCORD_ROLES_LIST:
@@ -116,7 +124,9 @@ async def give_old_reaction_roles():
                         try:
                             member = await client.get_guild(GUILD_ID).fetch_member(fetched_user.id)
                         except discord.errors.NotFound:
-                            print(f"User {fetched_user.name} with ID {fetched_user.id} not found in server")
+                            print(f"User {fetched_user.name} with ID {fetched_user.id} not found in server. Removing...")
+                            await reaction.remove(fetched_user)
+                            db.remove_sponsor_by_discord_id(fetched_user.id)
                             continue
                         user_roles = [role.id for role in member.roles]
                         for role_item in roles_dict:
