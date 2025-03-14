@@ -262,11 +262,13 @@ if __name__ == "__main__":
             await interaction.response.send_message("This command cannot be used in this channel.", ephemeral=True)
             return
         await interaction.response.send_message("Starting the verification...", ephemeral=True)
+        print(f"{interaction.user.display_name} started verification...")
         update_db()
         db = PostgresDB()
         user = db.get_sponsor_by_discord_id(interaction.user.id)
         discord_display_name = interaction.user.display_name
         if user:
+            print(f"User found: {discord_display_name}")
             await interaction.followup.send("You were found, checking your status...", ephemeral=True)
             if user.is_currently_sponsoring:
                 await interaction.user.add_roles(discord.Object(id=GH_SPONSORS_ROLE_ID))
@@ -300,6 +302,7 @@ if __name__ == "__main__":
                     print(f"Deleted thread {thread.name}")
         else:
             await interaction.followup.send("I have created a private thread for you to verify your sponsor/contributor status.", ephemeral=True)
+            print(f"User not found: {discord_display_name}. Creating thread...")
             # Make new private thread
             thread_name = f"{discord_display_name}'s Thread"
             user_thread = None
@@ -315,8 +318,9 @@ if __name__ == "__main__":
             await user_thread.send(f"Welcome to the server <@{interaction.user.id}>! Let's verify your sponsor/contributor status so you can access your project channel.")
             await user_thread.send(f"Please connect your GitHub account in Discord connections (no need to have it visible on your profile!) Once that is done, please follow this link: {generate_uri()}")
             await user_thread.send("Please run /verify in the other channel again once you have connected your GitHub account.")
+            print("Waiting for user to verify...")
 
-    @tasks.loop(hours=1)
+    @tasks.loop(hours=3)
     async def update_db_loop():
         print("=====================================")
         print(f"Auto-updating database {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -324,7 +328,7 @@ if __name__ == "__main__":
         print("Database auto-updated")
         print("=====================================")
 
-    @tasks.loop(hours=1)
+    @tasks.loop(hours=3)
     async def update_sponsors_loop():
         print("=====================================")
         print(f"Auto-updating sponsors {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
