@@ -1,10 +1,10 @@
-discord-oauth2.py==1.2.1
+discord-oauth2.py==1.2.2
 discord.py==2.5.2
 emoji==2.14.1
-flask==3.1.0
+flask==3.1.1
 icmplib==3.0.4
-python-dotenv==1.0.1
-requests==2.32.3
-setuptools==80.8.0
+python-dotenv==1.1.1
+requests==2.32.4
+setuptools==80.9.0
 PyYAML==6.0.2
 psycopg2==2.9.10
