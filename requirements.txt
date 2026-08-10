@@ -1,5 +1,5 @@
 discord-oauth2.py==1.2.2
-discord.py==2.5.2
+discord.py==2.7.1
 emoji==2.14.1
 flask==3.1.1
 icmplib==3.0.4
