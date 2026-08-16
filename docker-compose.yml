@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/nelsondane/sponsors-bot-web:latest
+    image: ghcr.io/nelsondane/sponsors-bot-web:latest@sha256:5df27965c8ba8d16be3e1e065bd43a62c1ae9b32a5e44b4afdd8937bf3029e61
     # build:
     #   context: .
     #   dockerfile: Dockerfile.web
@@ -15,13 +15,13 @@ services:
       - bot
 
   cloudflare:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:latest@sha256:0aa26e284f05e6c77ae375b8c9c11d9eb6a448fb7bcd8d40f31cb6176189eb38
     container_name: cloudflare
     restart: always
     command: tunnel run --token ${CLOUDFLARE_TOKEN}
 
   bot:
-    image: ghcr.io/nelsondane/sponsors-bot:latest
+    image: ghcr.io/nelsondane/sponsors-bot:latest@sha256:e933b7b9d2c4b852fc304826176de88835463e07e5d202e306c6c26a2716f845
     # build:
     #   context: .
     #   dockerfile: Dockerfile.bot
@@ -34,7 +34,7 @@ services:
       - db
 
   db:
-    image: postgres:17
+    image: postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
     container_name: db
     restart: always
     environment:
@@ -52,7 +52,7 @@ services:
       retries: 5
 
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: watchtower
     hostname: watchtower
     environment:
