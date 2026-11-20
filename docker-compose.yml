@@ -34,7 +34,7 @@ services:
       - db
 
   db:
-    image: postgres:17
+    image: postgres:19@sha256:eb37f58646a901dc7727cf448cae36daaefaba79de33b5058dab79aa4c04aefb
     container_name: db
     restart: always
     environment:
